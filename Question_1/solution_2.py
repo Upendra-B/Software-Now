@@ -1,132 +1,172 @@
-from pathlib import Path
+from pathlib import Path   # For handling file paths in a cross-platform way
 
-# -------------------------------------------------
-# Helper function: shift a single letter with wrap
-# -------------------------------------------------
+# ---------------------------
+# Simple shift function
+# ---------------------------
 def shift_char(c: str, shift: int) -> str:
-    if 'a' <= c <= 'z':
+    """
+    Shifts a single character (c) by 'shift' positions.
+    Works separately for lowercase [a-z] and uppercase [A-Z].
+    If the character is not a letter, it is returned unchanged.
+    """
+    if 'a' <= c <= 'z':  # lowercase
         return chr((ord(c) - ord('a') + shift) % 26 + ord('a'))
-    elif 'A' <= c <= 'Z':
+    elif 'A' <= c <= 'Z':  # uppercase
         return chr((ord(c) - ord('A') + shift) % 26 + ord('A'))
     else:
-        return c
+        return c  # non-alphabetic characters remain the same
 
 
-# -------------------------------------------------
-# Encryption with MASK
-# -------------------------------------------------
-def encrypt_text(text: str, shift1: int, shift2: int) -> tuple[str, str]:
-    encrypted_chars = []
-    mask_chars = []
+# ---------------------------
+# Encryption with rule array
+# ---------------------------
+def encrypt_text(text: str, shift1: int, shift2: int) -> tuple[str, list[str]]:
+    """
+    Encrypts a given text using two shifts (shift1, shift2).
+    Different rules are applied depending on:
+      - lowercase first half (a-m)
+      - lowercase second half (n-z)
+      - uppercase first half (A-M)
+      - uppercase second half (N-Z)
+      - other characters (unchanged)
+
+    Also generates a 'rules' list, storing how each character was transformed,
+    so that decryption can later be reversed exactly.
+    """
+    encrypted_chars = []  # stores encrypted characters
+    rules = []            # stores transformation rules
 
     for c in text:
+        # Case 1: lowercase letters
         if 'a' <= c <= 'z':
-            if c <= 'm':  # lowercase first half
+            if c <= 'm':  # first half of alphabet
                 encrypted_chars.append(shift_char(c, shift1 * shift2))
-                mask_chars.append("a")
-            else:         # lowercase second half
+                rules.append("L1")   # mark rule as lowercase-first-half
+            else:  # second half of alphabet
                 encrypted_chars.append(shift_char(c, -(shift1 + shift2)))
-                mask_chars.append("b")
+                rules.append("L2")   # mark rule as lowercase-second-half
+
+        # Case 2: uppercase letters
         elif 'A' <= c <= 'Z':
-            if c <= 'M':  # uppercase first half
+            if c <= 'M':  # first half of alphabet
                 encrypted_chars.append(shift_char(c, -shift1))
-                mask_chars.append("A")
-            else:         # uppercase second half
+                rules.append("U1")   # mark rule as uppercase-first-half
+            else:  # second half of alphabet
                 encrypted_chars.append(shift_char(c, shift2 ** 2))
-                mask_chars.append("B")
-        else:             # non-letter
-            encrypted_chars.append(c)
-            mask_chars.append("-")
+                rules.append("U2")   # mark rule as uppercase-second-half
 
-    return ''.join(encrypted_chars), ''.join(mask_chars)
+        # Case 3: non-alphabetic characters (symbols, spaces, etc.)
+        else:
+            encrypted_chars.append(c)  # no change
+            rules.append("O")          # mark as 'other'
+
+    # Return encrypted string and its rules
+    return ''.join(encrypted_chars), rules
 
 
-# -------------------------------------------------
-# Decryption with MASK
-# -------------------------------------------------
-def decrypt_text(ciphertext: str, mask: str, shift1: int, shift2: int) -> str:
-    decrypted_chars = []
+# ---------------------------
+# Decryption using rule array
+# ---------------------------
+def decrypt_text(ciphertext: str, shift1: int, shift2: int, rules: list[str]) -> str:
+    """
+    Decrypts the ciphertext using the same shifts and the stored rule array.
+    Each character is reversed according to the exact rule used in encryption.
+    """
+    decrypted_chars = []  # stores decrypted characters
 
-    for c, tag in zip(ciphertext, mask):
-        if tag == "a":  # lowercase first half
+    for c, rule in zip(ciphertext, rules):  # process char and its encryption rule
+        if rule == "L1":
             decrypted_chars.append(shift_char(c, -(shift1 * shift2)))
-        elif tag == "b":  # lowercase second half
+        elif rule == "L2":
             decrypted_chars.append(shift_char(c, (shift1 + shift2)))
-        elif tag == "A":  # uppercase first half
+        elif rule == "U1":
             decrypted_chars.append(shift_char(c, shift1))
-        elif tag == "B":  # uppercase second half
+        elif rule == "U2":
             decrypted_chars.append(shift_char(c, -(shift2 ** 2)))
-        else:  # non-letter
-            decrypted_chars.append(c)
+        elif rule == "O":
+            decrypted_chars.append(c)  # unchanged
 
     return ''.join(decrypted_chars)
 
 
-# -------------------------------------------------
-# File Operations
-# -------------------------------------------------
-def encrypt_file(base_dir: Path, shift1: int, shift2: int):
+# ---------------------------
+# File wrappers (for reading/writing)
+# ---------------------------
+def encrypt_file(base_dir: Path, shift1: int, shift2: int) -> tuple[Path, list[str]]:
+    """
+    Reads raw_text.txt → encrypts it → writes encrypted_text.txt
+    Returns the path to encrypted file and the rule array.
+    """
     raw_path = base_dir / "raw_text.txt"
     enc_path = base_dir / "encrypted_text.txt"
-    mask_path = base_dir / "mask.txt"
 
+    # Read input text
     text = raw_path.read_text(encoding="utf-8")
-    encrypted, mask = encrypt_text(text, shift1, shift2)
 
+    # Encrypt text and get rules
+    encrypted, rules = encrypt_text(text, shift1, shift2)
+
+    # Save encrypted text
     enc_path.write_text(encrypted, encoding="utf-8")
-    mask_path.write_text(mask, encoding="utf-8")
-
-    return enc_path, mask_path
+    return enc_path, rules
 
 
-def decrypt_file(base_dir: Path, shift1: int, shift2: int):
+def decrypt_file(base_dir: Path, shift1: int, shift2: int, rules: list[str]) -> Path:
+    """
+    Reads encrypted_text.txt → decrypts it using stored rules →
+    writes decrypted_text.txt
+    """
     enc_path = base_dir / "encrypted_text.txt"
-    mask_path = base_dir / "mask.txt"
     dec_path = base_dir / "decrypted_text.txt"
 
+    # Read ciphertext
     ciphertext = enc_path.read_text(encoding="utf-8")
-    mask = mask_path.read_text(encoding="utf-8")
 
-    plaintext = decrypt_text(ciphertext, mask, shift1, shift2)
+    # Decrypt
+    plaintext = decrypt_text(ciphertext, shift1, shift2, rules)
+
+    # Save decrypted text
     dec_path.write_text(plaintext, encoding="utf-8")
-
     return dec_path
 
 
 def verify(base_dir: Path) -> bool:
+    """
+    Compares raw_text.txt and decrypted_text.txt.
+    Returns True if both match, else False.
+    """
     raw_path = base_dir / "raw_text.txt"
     dec_path = base_dir / "decrypted_text.txt"
-
     return raw_path.read_text(encoding="utf-8") == dec_path.read_text(encoding="utf-8")
 
 
-# -------------------------------------------------
+# ---------------------------
 # Main program
-# -------------------------------------------------
+# ---------------------------
 if __name__ == "__main__":
-    base_dir = Path(__file__).resolve().parent
+    base_dir = Path(__file__).resolve().parent  # base directory of the script
 
-    # Create a sample raw_text.txt if missing
+    # Create a default raw_text.txt if it does not exist
     raw_path = base_dir / "raw_text.txt"
     if not raw_path.exists():
-        raw_path.write_text("Hello World!\nThis is a default test message.\nABC xyz", encoding="utf-8")
+        raw_path.write_text("Hello World! This is a test.\nABC xyz", encoding="utf-8")
         print(f"Created sample file: {raw_path}")
 
-    # Ask for user inputs
+    # User input for shifts
     shift1 = int(input("Enter shift1: "))
     shift2 = int(input("Enter shift2: "))
 
-    # Encrypt -> Decrypt -> Verify
-    encrypt_file(base_dir, shift1, shift2)
-    decrypt_file(base_dir, shift1, shift2)
+    # Perform encryption and decryption
+    enc_path, rules = encrypt_file(base_dir, shift1, shift2)
+    decrypt_file(base_dir, shift1, shift2, rules)
 
+    # Verify correctness
     if verify(base_dir):
-        print("✅ Decryption successful! The files match.")
+        print("✅ Decryption successful! Files match.")
     else:
-        print("❌ Decryption failed! The files do not match.")
+        print("❌ Decryption failed!")
 
-    print("\nFiles written in folder:")
-    print(f" - raw_text.txt")
-    print(f" - encrypted_text.txt")
-    print(f" - mask.txt")
-    print(f" - decrypted_text.txt")
+    # Show generated files
+    print("\nFiles written:")
+    print(" - encrypted_text.txt")
+    print(" - decrypted_text.txt")
