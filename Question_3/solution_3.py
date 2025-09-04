@@ -1,60 +1,58 @@
 import turtle
 
-def draw_edge(length, depth):
+def fractal_edge(length, level):
     """
-    Recursively draw one edge of the fractal polygon.
-    Each edge is divided into 4 smaller edges with an inward 'bump'.
+    Recursive function to draw one edge of the fractal polygon.
+    Each edge is split into 4 parts with an inward 'bump'.
     """
-    if depth == 0:
-        turtle.forward(length)  # Base case: draw straight line
+    if level == 0:
+        turtle.forward(length)
     else:
-        length /= 3.0  # Each new segment is 1/3 the original length
+        length /= 3.0
 
-        # 1st segment
-        draw_edge(length, depth - 1)
+        # First part
+        fractal_edge(length, level - 1)
 
-        # 2nd segment: turn right 60° to make the first side of the bump
+        # Turn and draw bump inward
         turtle.right(60)
-        draw_edge(length, depth - 1)
+        fractal_edge(length, level - 1)
 
-        # 3rd segment: turn left 120° to draw the middle side of the bump
         turtle.left(120)
-        draw_edge(length, depth - 1)
+        fractal_edge(length, level - 1)
 
-        # 4th segment: turn right 60° back to the original direction
+        # Return to original heading
         turtle.right(60)
-        draw_edge(length, depth - 1)
+        fractal_edge(length, level - 1)
 
-def draw_polygon(sides, length, depth):
+def fractal_polygon(sides, length, level):
     """
-    Draws the full fractal polygon shape.
-    Goes around 'sides' times, applying recursion to each edge.
+    Draw the full polygon with fractal edges.
     """
-    angle = 360 / sides  # Exterior angle of the polygon
+    angle = 360 / sides
     for _ in range(sides):
-        draw_edge(length, depth)  # Draw fractal edge
-        turtle.right(angle)       # Turn to the next side
+        fractal_edge(length, level)
+        turtle.right(angle)
 
 def main():
-    # Get user input for polygon properties
-    sides = int(input("Enter the number of sides: "))
-    length = float(input("Enter the side length (pixels): "))
-    depth = int(input("Enter the recursion depth: "))
+    # User input (slightly different wording)
+    sides = int(input("Number of sides for polygon: "))
+    length = float(input("Side length (pixels): "))
+    level = int(input("Recursion depth: "))
 
-    # Setup turtle graphics
-    turtle.speed(0)         # Fastest drawing speed
-    turtle.hideturtle()     # Hide the arrow cursor
-    turtle.title("Recursive Polygon Fractal (Inward Facing)")
+    # Setup
+    turtle.speed(0)
+    turtle.hideturtle()
+    turtle.title("Fractal Polygon Pattern")
 
-    # Move turtle to a starting position
+    # Start more centered
     turtle.penup()
-    turtle.goto(-length/2, length/3)  # Roughly center the drawing
+    turtle.setheading(0)
+    turtle.goto(-length/2, length/4)
     turtle.pendown()
 
-    # Draw the fractal polygon
-    draw_polygon(sides, length, depth)
+    # Draw
+    fractal_polygon(sides, length, level)
 
-    # Keep the window open until closed by user
     turtle.done()
 
 if __name__ == "__main__":
