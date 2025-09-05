@@ -1,10 +1,11 @@
 import turtle
+from PIL import Image
 
 def fractal_edge(length, level):
     """
     Recursive function to draw one side of the fractal.
     If level = 0 → just draw a straight line.
-    If level > 0 → split the line into 4 smaller parts with a bump in the middle.
+    If level > 0 → split the line into 4 smaller parts with a inward bump in the middle.
     """
     if level == 0:
         turtle.forward(length)
@@ -40,8 +41,8 @@ def fractal_polygon(sides, length, level):
 def main():
     # Ask the user for details
     sides = int(input("Number of sides for polygon: "))
-    length = float(input("Side length (pixels): "))
-    level = int(input("Recursion depth (0 = straight lines): "))
+    length = float(input("Side length in pixels: "))
+    level = int(input("Recursion depth (Number of times to apply the pattern rules): "))
 
     # Setup turtle speed and screen
     turtle.speed(0)        # fastest drawing
@@ -53,9 +54,19 @@ def main():
     turtle.setheading(0)
     turtle.goto(-length/2, length/4)
     turtle.pendown()
-
+        
     # Draw the fractal polygon
     fractal_polygon(sides, length, level)
+    
+    #The window will stay open until the user closes it
+
+    # --- SAVE RESULT TO PNG ---
+    canvas = turtle.getcanvas()
+    canvas.postscript(file="Question_3/result.eps")   # save EPS first
+    img = Image.open("result.eps")        # open EPS
+    img.save("Question_3/result.png")                # save as PNG
+    print("Fractal saved as result.png")
+    
 
     turtle.done()
 
